@@ -14,7 +14,7 @@ def main():
         return
         
     model = joblib.load(model_path)
-    cap = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)
+    cap = cv2.VideoCapture(0)
     extractor = HandExtractor()
     
     window_size = 30
@@ -28,7 +28,9 @@ def main():
     print("[+] Real-time inference ON. Press 'q' to exit.")
     while cap.isOpened():
         ret, frame = cap.read()
-        if not ret: break
+        if not ret:
+            print("[-] Error: cap.read() devolvió False. La cámara no emite frames o faltan permisos.")
+            break
         
         display = frame.copy()
         vec = extractor.extract(frame)

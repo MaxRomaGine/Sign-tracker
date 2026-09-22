@@ -10,7 +10,7 @@ def main():
     parser.add_argument("--samples", type=int, default=15, help="Número de muestras a grabar")
     args = parser.parse_args()
 
-    cap = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)
+    cap = cv2.VideoCapture(0)
     extractor = HandExtractor()
     
     os.makedirs("data", exist_ok=True)

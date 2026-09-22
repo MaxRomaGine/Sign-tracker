@@ -3,7 +3,7 @@ import numpy as np
 from src.extractor import HandExtractor
 
 def main():
-    cap = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)
+    cap = cv2.VideoCapture(0)
     extractor = HandExtractor()
 
     print("[+] Debug mode ON. Press 'q' to exit.")
