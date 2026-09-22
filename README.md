@@ -18,10 +18,10 @@ If you want to test it right away with a pre-trained model:
    source venv/bin/activate
    pip install -r requirements.txt
 
-> **⚠️ Note on Python Version**: MediaPipe's legacy `mp.solutions` API requires **Python 3.10 or 3.11** on macOS Apple Silicon (ARM64). If your system Python is 3.12+, run these setup commands:
+> **⚠️ Note on Python Version**: MediaPipe's legacy `mp.solutions` API requires **Python 3.10 or 3.11** on macOS Apple Silicon (ARM64). If your system Python is 3.12+, run:
 > ```bash
 > brew install python@3.11
-> $(brew --prefix python@3.11)/bin/python3 -m venv venv
+> python3.11 -m venv venv
 > source venv/bin/activate
 > pip install -r requirements.txt
 > ```
