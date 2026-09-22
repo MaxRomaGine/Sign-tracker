@@ -3,3 +3,5 @@ mediapipe
 numpy
 scikit-learn
 joblib
+mediapipe==0.10.30
+protobuf==3.20.1
