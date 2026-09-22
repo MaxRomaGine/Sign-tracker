@@ -21,9 +21,9 @@ If you want to test it right away with a pre-trained model:
 3. Download required MediaPipe Task model and pre-trained classifier:
    ```Bash
    mkdir -p models
-   curl -o models/hand_landmarker.task -L [https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task](https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task)
-   curl -L "[https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl](https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl)" -o models/sign_classifier.pkl
-   
+   curl -o models/hand_landmarker.task -L "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+   curl -L "https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl" -o models/sign_classifier.pkl
+  
 4. Run live inference:
    ```Bash
    python3 -m src.infer
