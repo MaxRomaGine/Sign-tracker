@@ -10,7 +10,7 @@ If you want to test it right away with a pre-trained model:
 
 1. **Clone the repository**:
    ```bash
-   git clone [https://github.com/MaxRomaGine/Sign-tracker.git](https://github.com/MaxRomaGine/Sign-tracker.git)
+   git clone https://github.com/MaxRomaGine/Sign-tracker.git
    cd Sign-tracker
 2. Create virtual environment and install dependencies:
    ```bash
