@@ -12,38 +12,38 @@ If you want to test it right away with a pre-trained model:
    ```bash
    git clone [https://github.com/MaxRomaGine/Sign-tracker.git](https://github.com/MaxRomaGine/Sign-tracker.git)
    cd Sign-tracker
-1. Create virtual environment and install dependencies:
+2. Create virtual environment and install dependencies:
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
 
-2. Download the pre-trained model (from GitHub Releases):
+3. Download the pre-trained model (from GitHub Releases):
    ```Bash
    mkdir -p models
    curl -L "[https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl](https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl)" -o models/sign_classifier.pkl
 
-3. Run live inference:
+4. Run live inference:
    ```Bash
    python3 -m src.infer
    (Press q to exit)
 
-4. Train Your Own Signs (Custom Dataset)
+#5. Train Your Own Signs (Custom Dataset)
 If you prefer recording your own vocabulary from scratch:
 
-4.1 Record samples:
+5.1 Record samples:
    ```Bash  
-   python3 -m src.collect --label hola --samples 35
-   python3 -m src.collect --label gracias --samples 35
-   python3 -m src.collect --label idle --samples 40
+   python3 -m src.collect --label hola --samples 30
+   python3 -m src.collect --label gracias --samples 30
+   python3 -m src.collect --label idle --samples 35
    ```
    Idle means when no sing is performed.
    
-4.2 Train the model:
+5.2 Train the model:
    ```Bash
    python3 -m src.train
    ```
-4.3 Run inference:
+5.3 Run inference:
    ```Bash
    python3 -m src.infer
    ```
