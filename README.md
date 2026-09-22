@@ -20,9 +20,8 @@ If you want to test it right away with a pre-trained model:
 
 3. Download the pre-trained model (from GitHub Releases):
    ```Bash
-   mkdir -p models
-   curl -L "[https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl](https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl)" -o models/sign_classifier.pkl
-
+   mkdir -p models && curl -L "https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl" -o models/sign_classifier.pkl
+   
 4. Run live inference:
    ```Bash
    python3 -m src.infer
