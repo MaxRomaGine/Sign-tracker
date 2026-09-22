@@ -23,7 +23,8 @@ If you want to test it right away with a pre-trained model:
    mkdir -p models
    curl -o models/hand_landmarker.task -L "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
    curl -L "https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl" -o models/sign_classifier.pkl
-   (Windows/Manual): Put hand_landmarker.task and sign_classifier.pkl inside a folder called models/.
+
+(Windows/Manual): Put hand_landmarker.task and sign_classifier.pkl inside a folder called models/.
 
 4. Run live inference:
    ```Bash
