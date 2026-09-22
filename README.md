@@ -37,6 +37,8 @@ If you prefer recording your own vocabulary from scratch:
    python3 -m src.collect --label gracias --samples 35
    python3 -m src.collect --label idle --samples 40
    ```
+   Idle means when no sing is performed.
+   
 4.2 Train the model:
    ```Bash
    python3 -m src.train
@@ -54,7 +56,7 @@ If you prefer recording your own vocabulary from scratch:
 - Temporal Latch & Override: 2-second screen hold with instant override if a valid trajectory change is detected.
 
 ## Project Structure:
-
+```
 Sign-tracker/
 ├── src/
 │   ├── extractor.py    # MediaPipe landmark extraction
@@ -64,3 +66,4 @@ Sign-tracker/
 │   └── infer.py        # Real-time inference loop
 ├── requirements.txt
 └── README.md
+```
