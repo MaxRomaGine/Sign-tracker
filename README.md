@@ -18,21 +18,16 @@ If you want to test it right away with a pre-trained model:
    source venv/bin/activate
    pip install -r requirements.txt
 
-> **⚠️ Note on Python Version**: MediaPipe's legacy `mp.solutions` API requires **Python 3.10 or 3.11** on macOS Apple Silicon (ARM64). If your system Python is 3.12+, run:
-> ```bash
-> brew install python@3.11
-> python3.11 -m venv venv
-> source venv/bin/activate
-> pip install -r requirements.txt
-> ```
-
-3. Download the pre-trained model (from GitHub Releases):
+3. Download required MediaPipe Task model and pre-trained classifier:
    ```Bash
-   mkdir -p models && curl -L "https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl" -o models/sign_classifier.pkl
+   mkdir -p models
+   curl -o models/hand_landmarker.task -L [https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task](https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task)
+   curl -L "[https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl](https://github.com/MaxRomaGine/Sign-tracker/releases/download/v1.0/sign_classifier.pkl)" -o models/sign_classifier.pkl
    
 4. Run live inference:
    ```Bash
    python3 -m src.infer
+   ```
    (Press q to exit)
 
 ## 5. Train Your Own Signs (Custom Dataset)
