@@ -2,13 +2,6 @@
 
 Real-time sign language recognition system built with Python, OpenCV, MediaPipe, **Piecewise Relative Kinematics**, and a Random Forest classifier. Designed for zero-flicker live inference, strict idle rejection, and instant sign override.
 
-> **⚠️ Note on Python Version**: MediaPipe's legacy `mp.solutions` API requires **Python 3.10 or 3.11** on macOS Apple Silicon (ARM64). If your default system Python is 3.12+, set up the environment using Homebrew:
-> ```bash
-> brew install python@3.11
-> /opt/homebrew/opt/python@3.11/bin/python3 -m venv venv
-> source venv/bin/activate
-> pip install -r requirements.txt
-> ```
 ---
 
 ## Quickstart (Plug & Play)
@@ -24,6 +17,14 @@ If you want to test it right away with a pre-trained model:
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
+
+> **⚠️ Note on Python Version**: MediaPipe's legacy `mp.solutions` API requires **Python 3.10 or 3.11** on macOS Apple Silicon (ARM64). If your default system Python is 3.12+, set up the environment using Homebrew:
+> ```bash
+> brew install python@3.11
+> /opt/homebrew/opt/python@3.11/bin/python3 -m venv venv
+> source venv/bin/activate
+> pip install -r requirements.txt
+> ```
 
 3. Download the pre-trained model (from GitHub Releases):
    ```Bash
