@@ -28,7 +28,7 @@ If you want to test it right away with a pre-trained model:
    python3 -m src.infer
    (Press q to exit)
 
-#5. Train Your Own Signs (Custom Dataset)
+## 5. Train Your Own Signs (Custom Dataset)
 If you prefer recording your own vocabulary from scratch:
 
 5.1 Record samples:
