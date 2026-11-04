@@ -6,6 +6,19 @@ Sign Tracker is a local webcam prototype for recognizing a small, user-recorded 
 
 The pinned MediaPipe 0.10.21 build has Python 3.10–3.12 wheels for Windows x64 and macOS Intel and Apple Silicon. The pinned OpenCV build needs macOS 13 or newer. Windows ARM is not covered by this pinned build. A built-in laptop webcam is easiest to start with; external cameras can be selected with `--camera 1`, `--camera 2`, and so on.
 
+## Try the browser demo
+
+The repository also includes a browser-based companion demo in [`web/`](web/). It uses MediaPipe hand landmarks in the browser and lets you record examples for your own labels, then compares live one-second hand movements against those examples. The browser demo is a separate lightweight prototype; it does not load the Python Random Forest model.
+
+To publish it on GitHub Pages:
+
+1. In the GitHub repository, open **Settings → Pages**.
+2. Under **Build and deployment**, select **GitHub Actions** as the source.
+3. Push a change to the `web/` directory on `main`, or run **Deploy browser demo to GitHub Pages** from the **Actions** tab.
+4. Once the workflow finishes, open the Pages URL shown in the workflow summary (usually `https://maxromagine.github.io/Sign-tracker/`).
+
+Use a current browser and allow camera access. The demo downloads the MediaPipe runtime and hand-landmarker model from their public CDNs the first time it starts; the camera frames are processed locally and are not uploaded. Your recorded examples are stored in that browser's local storage on that device. They are not shared with the Python app or other browsers. The browser prototype uses a simple nearest-example comparison, so it can produce false positives and needs several varied examples per label. It is for trying the project, not reliable communication.
+
 ## Install
 
 Use Python 3.11 if possible. Create the environment in the project folder, install the pinned dependencies, and download the official MediaPipe hand model once.

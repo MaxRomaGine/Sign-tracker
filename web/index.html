@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101511">
+  <meta name="description" content="A browser-based webcam hand-sign recognition prototype. Runs locally in your browser.">
+  <title>Sign Tracker — browser demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="#"><span class="brand-mark">S<span>·</span></span> SIGN TRACKER</a><span class="top-note"><i></i> BROWSER PROTOTYPE</span></header>
+  <main>
+    <section class="intro">
+      <div class="eyebrow">A small computer vision experiment</div>
+      <h1>Teach your camera<br> a <em>hand sign.</em></h1>
+      <p>Record a few examples, then try them live. Hand tracking runs in your browser; camera frames and examples stay on this device.</p>
+    </section>
+
+    <section class="workspace" aria-label="Sign Tracker demo">
+      <div class="camera-panel">
+        <div class="panel-head"><div><span class="step">01 / CAMERA</span><h2>Your camera</h2></div><span id="cameraStatus" class="status"><i></i> CAMERA OFF</span></div>
+        <div class="video-wrap">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="overlay"></canvas>
+          <div id="videoPlaceholder" class="placeholder"><div class="camera-icon">⌁</div><strong>Your camera preview</strong><span>Start the camera to begin</span></div>
+          <div class="video-corner">LIVE LANDMARK VIEW</div>
+          <div id="recognized" class="recognized"><small>RECOGNIZED SIGN</small><b id="recognizedLabel">—</b></div>
+        </div>
+        <div class="camera-controls"><button id="cameraButton" class="button primary">Enable camera <span>↗</span></button><span class="privacy-note"><span class="lock">⌑</span> Processing stays in this browser</span></div>
+        <div id="message" class="message" role="status">Camera access is needed to collect or recognize signs.</div>
+      </div>
+
+      <aside class="side-panel">
+        <div class="panel-head"><div><span class="step">02 / EXAMPLES</span><h2>Teach a sign</h2></div><span id="exampleCount" class="count">0 EXAMPLES</span></div>
+        <p class="side-copy">Choose a label, then hold or perform that sign while recording. Record several different examples for each sign.</p>
+        <label class="field-label" for="labelInput">SIGN LABEL</label>
+        <div class="label-row"><input id="labelInput" value="hola" maxlength="24" autocomplete="off" aria-label="Sign label"><button id="recordButton" class="button record" disabled><span class="record-dot"></span> Record 1 sec</button></div>
+        <div class="presets"><button data-label="hola">hola</button><button data-label="gracias">gracias</button><button data-label="idle">idle / no sign</button></div>
+        <div class="progress-track"><div id="progress"></div></div>
+        <div class="example-list" id="exampleList"><div class="empty-state">Your recorded sign examples<br>will appear here.</div></div>
+        <div class="side-actions"><button id="clearButton" class="text-button" disabled>Clear examples</button><span>Saved on this device</span></div>
+      </aside>
+    </section>
+
+    <section class="how"><div class="how-title"><span class="step">03 / TRY IT</span><h2>How to get a better result</h2></div><div class="tips"><div><span>01</span><p>Keep your hand visible, well lit, and centered in the frame.</p></div><div><span>02</span><p>Record examples from different positions and at different speeds.</p></div><div><span>03</span><p>Add <b>idle</b> examples of everyday hand movement to reduce false triggers.</p></div></div></section>
+    <footer><span>Built with MediaPipe · Sign Tracker is an experimental prototype, not a sign-language translator.</span><a href="https://github.com/MaxRomaGine/Sign-tracker" target="_blank" rel="noreferrer">VIEW SOURCE ON GITHUB ↗</a></footer>
+  </main>
+</body>
+</html>
