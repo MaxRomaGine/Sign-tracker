@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const video = $("video"), canvas = $("overlay"), ctx = canvas.getContext("2d");
 const STORAGE_KEY = "sign-tracker-browser-examples-v1";
 const WINDOW_FRAMES = 30, WINDOW_MS = 1000;
-let landmarker, stream, latestFrame = new Array(126).fill(0), history = [], examples = loadExamples();
+let landmarker, stream, latestFrame = new Array(126).fill(0), handsDetected = false, history = [], examples = loadExamples();
 let capturing = false, lastInference = 0, predictions = [], stableLabel = "", stableUntil = 0;
 
 function loadExamples() {
@@ -93,7 +93,7 @@ function classify(frames) {
 }
 
 function recognize(now) {
-  if (!latestFrame.some((value) => Math.abs(value) > 1e-5)) {
+  if (!handsDetected) {
     predictions = []; stableLabel = ""; stableUntil = 0;
     $("recognized").classList.remove("show");
     return;
@@ -118,10 +118,11 @@ async function frameLoop() {
       lastInference = now;
       try {
         const result = landmarker.detectForVideo(video, now);
+        handsDetected = (result.landmarks?.length || 0) > 0;
         latestFrame = normalizedHands(result); drawLandmarks(result);
         history.push({ t: now, v: latestFrame });
         while (history.length && history[0].t < now - 2500) history.shift();
-        if (!latestFrame.some((value) => Math.abs(value) > 1e-5)) {
+        if (!handsDetected) {
           predictions = []; stableLabel = ""; stableUntil = 0;
           $("recognized").classList.remove("show");
         }
@@ -160,7 +161,7 @@ async function startCamera() {
 
 function stopCamera() {
   if (stream) stream.getTracks().forEach((track) => track.stop());
-  stream = null; video.srcObject = null; ctx.clearRect(0, 0, canvas.width, canvas.height);
+  stream = null; handsDetected = false; video.srcObject = null; ctx.clearRect(0, 0, canvas.width, canvas.height);
   $("videoPlaceholder").style.display = "flex"; $("cameraStatus").classList.remove("active"); $("cameraStatus").innerHTML = "<i></i> CAMERA OFF";
   $("cameraButton").textContent = "Enable camera ↗"; $("recordButton").disabled = true; $("recognized").classList.remove("show");
   showMessage("Camera stopped.");
