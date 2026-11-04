@@ -1,80 +1,101 @@
-import os
-import cv2
-import numpy as np
-import joblib
-import time
+"""Run live webcam inference using a model produced by src.train."""
+
+import argparse
 from collections import deque
+from pathlib import Path
+import time
+
+import cv2
+import joblib
+import numpy as np
+
+from src.collect import open_camera
 from src.extractor import HandExtractor
-from src.utils import extract_kinematic_features
+from src.utils import FEATURE_SCHEMA_VERSION, FRAME_FEATURES, WINDOW_SIZE, extract_kinematic_features
+
 
 def main():
-    model_path = "models/sign_classifier.pkl"
-    if not os.path.exists(model_path):
-        print("[-] No hay modelo entrenado. Ejecuta train.py primero.")
-        return
-        
-    model = joblib.load(model_path)
-    cap = cv2.VideoCapture(0)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", type=Path, default=Path("models/sign_classifier.pkl"), help="Trained model")
+    parser.add_argument("--camera", type=int, default=0, help="Camera device index")
+    parser.add_argument("--threshold", type=float, default=0.60, help="Minimum prediction confidence")
+    parser.add_argument("--hold", type=float, default=1.2, help="Seconds to keep the last recognized sign visible")
+    args = parser.parse_args()
+    if not 0.0 <= args.threshold <= 1.0:
+        parser.error("--threshold must be between 0 and 1")
+    if args.hold < 0:
+        parser.error("--hold cannot be negative")
+    if not args.model.exists():
+        parser.error(f"Model not found: {args.model}. Record examples and run python -m src.train first.")
+
+    model = joblib.load(args.model)
+    if getattr(model, "_sign_tracker_feature_version", None) != FEATURE_SCHEMA_VERSION:
+        parser.error("Model uses an older feature format. Record fresh data and run python -m src.train.")
+    if getattr(model, "n_features_in_", None) != FRAME_FEATURES * 3:
+        parser.error("Model feature count is incompatible; retrain it with the current project version.")
+    try:
+        cap = open_camera(args.camera)
+    except RuntimeError as exc:
+        parser.error(str(exc))
     extractor = HandExtractor()
-    
-    window_size = 30
-    frame_buffer = deque(maxlen=window_size)
-    confidence_threshold = 0.52  
-
-    active_label = ""
+    window = deque(maxlen=WINDOW_SIZE)
+    recent_predictions = deque(maxlen=5)
+    last_label = ""
     display_until = 0.0
-    hold_duration = 2.0  # 2 segundos clavados
-    
-    print("[+] Real-time inference ON. Press 'q' to exit.")
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            print("[-] Error: cap.read() devolvió False. La cámara no emite frames o faltan permisos.")
-            break
-        
-        display = frame.copy()
-        vec = extractor.extract(frame)
-        frame_buffer.append(vec)
-        
-        hands_active = np.sum(np.abs(vec)) > 1e-4
-        now = time.time()
-        
-       # Evaluar solo si hay actividad y ventana llena
-        if hands_active and len(frame_buffer) == window_size:
-            buffer_mat = np.array(list(frame_buffer))
-            feat_vec = extract_kinematic_features(buffer_mat).reshape(1, -1)
-            
-            if np.max(np.abs(feat_vec)) > 0.005:
-                if hasattr(model, "predict_proba"):
-                    probs = model.predict_proba(feat_vec)[0]
-                    max_prob = np.max(probs)
-                    pred_idx = np.argmax(probs)
-                    pred_class = model.classes_[pred_idx]
-                    
-                    # Interrupción inmediata si supera el umbral y no es idle
-                    if max_prob >= confidence_threshold and pred_class != "idle":
-                        active_label = pred_class
-                        display_until = now + hold_duration
+    print("Live recognition started. Press q to quit. Keep each sign moving naturally through the camera view.")
+
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                print("Camera stopped returning frames.")
+                break
+            frame = cv2.flip(frame, 1)
+            vector = extractor.extract(frame)
+            window.append(vector)
+            now = time.monotonic()
+            confidence = 0.0
+            predicted = ""
+
+            if len(window) == WINDOW_SIZE and np.max(np.abs(vector)) > 1e-4:
+                features = extract_kinematic_features(np.asarray(window)).reshape(1, -1)
+                if np.max(np.abs(features)) > 0.002:
+                    if hasattr(model, "predict_proba"):
+                        probabilities = model.predict_proba(features)[0]
+                        index = int(np.argmax(probabilities))
+                        predicted = str(model.classes_[index])
+                        confidence = float(probabilities[index])
+                    else:
+                        predicted = str(model.predict(features)[0])
+                        confidence = 1.0
+                    if confidence >= args.threshold:
+                        recent_predictions.append(predicted)
+                        if len(recent_predictions) >= 3 and max(set(recent_predictions), key=recent_predictions.count) == predicted:
+                            last_label = predicted
+                            display_until = now + args.hold
+                    else:
+                        recent_predictions.clear()
                 else:
-                    pred_class = model.predict(feat_vec)[0]
-                    if pred_class != "idle":
-                        active_label = pred_class
-                        display_until = now + hold_duration
+                    recent_predictions.clear()
+            else:
+                recent_predictions.clear()
 
-        # Mostrar solo si estamos dentro de la ventana de tiempo activa
-        current_text = active_label if now <= display_until else ""
-            
-        if current_text:
-            cv2.putText(display, f"Sign: {current_text}", (30, 60),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
-            
-        cv2.imshow("Sign Tracker - Live", display)
-        
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            label = last_label if now <= display_until else ""
+            cv2.putText(frame, f"Sign: {label or '—'}", (20, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0,
+                        (40, 220, 40) if label else (190, 190, 190), 2)
+            if predicted:
+                cv2.putText(frame, f"Candidate: {predicted} ({confidence:.0%})", (20, 80),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (220, 220, 220), 1)
+            cv2.putText(frame, "q: quit", (20, frame.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.55, (220, 220, 220), 1)
+            cv2.imshow("Sign Tracker - Live", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+    finally:
+        cap.release()
+        extractor.close()
+        cv2.destroyAllWindows()
 
-    cap.release()
-    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()

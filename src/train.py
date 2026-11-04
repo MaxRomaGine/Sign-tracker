@@ -1,38 +1,92 @@
-import os
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+"""Train and save the sign classifier from recorded motion windows."""
+
+import argparse
+from pathlib import Path
+
 import joblib
-from src.utils import extract_kinematic_features
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import train_test_split
+
+from src.utils import FEATURE_SCHEMA_VERSION, FRAME_FEATURES, WINDOW_SIZE, extract_kinematic_features
+
+
+def load_dataset(path: Path):
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset not found: {path}. Record samples with src.collect first.")
+    with np.load(path, allow_pickle=False) as data:
+        if not {"X", "y"}.issubset(data.files):
+            raise ValueError("Dataset must contain arrays named X and y.")
+        if "feature_version" not in data.files or int(data["feature_version"]) != FEATURE_SCHEMA_VERSION:
+            raise ValueError("Dataset uses an older feature format. Back it up and record fresh samples with src.collect.")
+        raw, labels = data["X"], data["y"].astype(str)
+
+    expected = WINDOW_SIZE * FRAME_FEATURES
+    if raw.ndim != 2 or raw.shape[1] != expected:
+        raise ValueError(f"Expected X to have shape (samples, {expected}), got {raw.shape}.")
+    if len(raw) != len(labels) or len(labels) < 2:
+        raise ValueError("Dataset needs at least two labeled samples.")
+    classes, counts = np.unique(labels, return_counts=True)
+    if len(classes) < 2:
+        raise ValueError("Record at least two different labels before training.")
+    if np.any(counts < 2):
+        missing = ", ".join(f"{name} ({count})" for name, count in zip(classes, counts) if count < 2)
+        raise ValueError(f"Each class needs at least 2 samples for a train/test split: {missing}.")
+
+    features = np.stack([
+        extract_kinematic_features(sample.reshape(WINDOW_SIZE, FRAME_FEATURES))
+        for sample in raw
+    ])
+    return features, labels
+
 
 def main():
-    data_path = "data/signs.npz"
-    if not os.path.exists(data_path):
-        print("[-] No se encontró el dataset en data/signs.npz")
-        return
-        
-    data = np.load(data_path, allow_pickle=True)
-    X_raw, y = data["X"], data["y"]
-    
-    N = X_raw.shape[0]
-    X_rel = np.array([extract_kinematic_features(sample.reshape(30, 126)) for sample in X_raw], dtype=np.float32)
-    
-    print(f"[+] Loaded dataset. Rel X shape: {X_rel.shape}, classes: {np.unique(y)}")
-    
-    test_sz = 0.2 if N >= 5 else 0.5
-    X_train, X_test, y_train, y_test = train_test_split(X_rel, y, test_size=test_sz, random_state=42)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", type=Path, default=Path("data/signs.npz"), help="Recorded dataset")
+    parser.add_argument("--output", type=Path, default=Path("models/sign_classifier.pkl"), help="Model output path")
+    parser.add_argument("--trees", type=int, default=200, help="Number of random forest trees")
+    args = parser.parse_args()
+    if args.trees < 1:
+        parser.error("--trees must be at least 1")
 
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train.ravel() if y_train.ndim > 1 else y_train)
-    
-    preds = model.predict(X_test)
-    acc = accuracy_score(y_test, preds)
-    print(f"[+] Accuracy con cinemática relativa: {acc:.2f}")
-    
-    os.makedirs("models", exist_ok=True)
-    joblib.dump(model, "models/sign_classifier.pkl")
-    print("[+] Modelo guardado en models/sign_classifier.pkl")
+    try:
+        features, labels = load_dataset(args.data)
+    except (FileNotFoundError, ValueError) as exc:
+        parser.error(str(exc))
+
+    classes, counts = np.unique(labels, return_counts=True)
+    print(f"Loaded {len(labels)} samples across {len(classes)} classes.")
+    for name, count in zip(classes, counts):
+        print(f"  {name}: {count}")
+
+    if len(labels) >= 10:
+        test_count = max(len(classes), round(len(labels) * 0.2))
+        if test_count <= len(labels) - len(classes):
+            x_train, x_test, y_train, y_test = train_test_split(
+                features, labels, test_size=test_count, random_state=42, stratify=labels
+            )
+        else:
+            x_train = x_test = y_train = y_test = None
+    else:
+        x_train = x_test = y_train = y_test = None
+
+    model = RandomForestClassifier(n_estimators=args.trees, class_weight="balanced", random_state=42)
+    if x_train is not None:
+        model.fit(x_train, y_train)
+        predictions = model.predict(x_test)
+        print(f"Holdout accuracy: {accuracy_score(y_test, predictions):.2%}")
+        print(classification_report(y_test, predictions, zero_division=0))
+        print("Note: this score is a small random holdout, not an independent user evaluation.")
+    else:
+        print("Dataset is too small for a useful holdout score; fitting all samples.")
+    model.fit(features, labels)
+    model._sign_tracker_feature_version = FEATURE_SCHEMA_VERSION
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, args.output)
+    print(f"Model saved to {args.output}")
+
 
 if __name__ == "__main__":
     main()

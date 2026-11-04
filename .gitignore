@@ -1,6 +1,7 @@
+.venv/
 venv/
+__pycache__/
+*.py[cod]
 data/
 models/
-__pycache__/
-*.pyc
 .DS_Store

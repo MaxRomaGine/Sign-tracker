@@ -1,71 +1,98 @@
-import os
+"""Record labeled one-second webcam windows for the local dataset."""
+
+import argparse
+from pathlib import Path
+
 import cv2
 import numpy as np
-import argparse
+
 from src.extractor import HandExtractor
+from src.utils import FEATURE_SCHEMA_VERSION, FRAME_FEATURES, WINDOW_SIZE
+
+
+def open_camera(index: int):
+    cap = cv2.VideoCapture(index)
+    if not cap.isOpened():
+        cap.release()
+        raise RuntimeError(f"Could not open camera {index}. Check permissions or try --camera N.")
+    return cap
+
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--label", type=str, required=True, help="Nombre de la seña (ej: hola)")
-    parser.add_argument("--samples", type=int, default=15, help="Número de muestras a grabar")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--label", required=True, help="Sign label, for example hello")
+    parser.add_argument("--samples", type=int, default=20, help="Number of windows to record")
+    parser.add_argument("--data", type=Path, default=Path("data/signs.npz"), help="Dataset path")
+    parser.add_argument("--camera", type=int, default=0, help="Camera device index")
     args = parser.parse_args()
+    if not args.label.strip() or args.label.strip().lower() == "idle":
+        parser.error("Use a non-empty sign label. Idle is handled as no detected hand activity.")
+    if args.samples < 1:
+        parser.error("--samples must be at least 1")
+    label = args.label.strip().lower()
 
-    cap = cv2.VideoCapture(0)
+    args.data.parent.mkdir(parents=True, exist_ok=True)
+    if args.data.exists():
+        with np.load(args.data, allow_pickle=False) as saved:
+            if not {"X", "y"}.issubset(saved.files):
+                parser.error(f"{args.data} must contain X and y arrays")
+            if "feature_version" not in saved.files or int(saved["feature_version"]) != FEATURE_SCHEMA_VERSION:
+                parser.error(f"{args.data} uses an older feature format. Back it up and record fresh samples.")
+            old_x, old_y = saved["X"], saved["y"].astype(str)
+        if old_x.ndim != 2 or old_x.shape[1] != WINDOW_SIZE * FRAME_FEATURES or len(old_x) != len(old_y):
+            parser.error(f"Existing dataset at {args.data} has an incompatible shape")
+        X_all, y_all = list(old_x), list(old_y)
+    else:
+        X_all, y_all = [], []
+
+    cap = open_camera(args.camera)
     extractor = HandExtractor()
-    
-    os.makedirs("data", exist_ok=True)
-    data_path = "data/signs.npz"
-    
-    X_all, y_all = [], []
-    if os.path.exists(data_path):
-        existing = np.load(data_path, allow_pickle=True)
-        X_all, y_all = list(existing["X"]), list(existing["y"])
-
-    print(f"[+] Recording for class '{args.label}'. Target samples: {args.samples}")
-    print("[!] Press 'r' to start recording a sample, 'q' to quit.")
-
     sample_count = 0
-    while sample_count < args.samples and cap.isOpened():
-        ret, frame = cap.read()
-        if not ret: break
-        
-        display = frame.copy()
-        cv2.putText(display, f"Class: {args.label} | Sample: {sample_count}/{args.samples}", (30, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        cv2.putText(display, "Press 'r' to record 1s window", (30, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-        cv2.imshow("Collector", display)
-        
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-        elif key == ord('r'):
-            print(f"[+] Recording sample {sample_count+1}...")
-            buffer = []
-            for _ in range(30):
-                ret_f, f_frame = cap.read()
-                if not ret_f: break
-                feats = extractor.extract(f_frame)
-                buffer.append(feats)
-                
-                fb = f_frame.copy()
-                cv2.putText(fb, "RECORDING...", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
-                cv2.imshow("Collector", fb)
-                cv2.waitKey(30)
-            
-            if len(buffer) == 30:
-                sample_vector = np.concatenate(buffer).flatten()  # 30 * 126 = 3780
-                X_all.append(sample_vector)
-                y_all.append(args.label)
-                sample_count += 1
-                print(f"[+] Saved sample {sample_count}")
+    frames = []
+    recording = False
+    try:
+        print("Show the sign clearly, then press SPACE to record a one-second window. Press q to finish.")
+        while sample_count < args.samples:
+            ok, frame = cap.read()
+            if not ok:
+                print("Camera stopped returning frames.")
+                break
+            frame = cv2.flip(frame, 1)
+            if recording:
+                frames.append(extractor.extract(frame))
+                if len(frames) >= WINDOW_SIZE:
+                    X_all.append(np.asarray(frames[:WINDOW_SIZE], dtype=np.float32).reshape(-1))
+                    y_all.append(label)
+                    sample_count += 1
+                    frames.clear()
+                    recording = False
+                    print(f"Saved {sample_count}/{args.samples}")
 
-    cap.release()
-    cv2.destroyAllWindows()
+            display = frame.copy()
+            instruction = "RECORDING - hold the sign" if recording else "SPACE: record sample | q: quit"
+            color = (0, 0, 255) if recording else (40, 220, 40)
+            cv2.putText(display, f"Label: {label}  Samples: {sample_count}/{args.samples}", (20, 35),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, color, 2)
+            cv2.putText(display, instruction, (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            cv2.imshow("Sign Tracker - Data Collection", display)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("q"):
+                break
+            if key == ord(" ") and not recording:
+                recording = True
+                frames = []
+                print("Recording sample...")
+    finally:
+        cap.release()
+        extractor.close()
+        cv2.destroyAllWindows()
 
     if X_all:
-        np.savez(data_path, X=np.array(X_all, dtype=np.float32), y=np.array(y_all))
-        print(f"[+] Dataset updated at {data_path}. Total samples: {len(y_all)}")
+        np.savez_compressed(args.data, X=np.asarray(X_all, dtype=np.float32), y=np.asarray(y_all, dtype=str),
+                            feature_version=np.array(FEATURE_SCHEMA_VERSION, dtype=np.int32))
+        print(f"Dataset saved to {args.data} ({len(y_all)} total samples).")
+    print(f"Recorded {sample_count} new samples for '{label}'.")
+
 
 if __name__ == "__main__":
     main()
