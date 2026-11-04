@@ -184,7 +184,8 @@ async function recordExample() {
   });
   const sampled = [];
   for (let i = 0; i < WINDOW_FRAMES; i++) sampled.push(frames[Math.min(frames.length - 1, Math.floor(i * frames.length / WINDOW_FRAMES))]);
-  if (!sampled.some((frame) => frame.some((value) => value !== 0))) {
+  const handWasSeen = sampled.some((frame) => frame.some((value) => Math.abs(value) > 1e-5));
+  if (!handWasSeen && label !== "idle") {
     showMessage("No hand was detected. Keep your hand in view and try again.", true);
   } else {
     examples.push({ label, frames: sampled });

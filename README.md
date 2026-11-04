@@ -17,7 +17,7 @@ To publish it on GitHub Pages:
 3. Push a change to the `web/` directory on `main`, or run **Deploy browser demo to GitHub Pages** from the **Actions** tab.
 4. Once the workflow finishes, open the Pages URL shown in the workflow summary (usually `https://maxromagine.github.io/Sign-tracker/`).
 
-Use a current browser and allow camera access. The demo downloads the MediaPipe runtime and hand-landmarker model from their public CDNs the first time it starts; the camera frames are processed locally and are not uploaded. Your recorded examples are stored in that browser's local storage on that device. They are not shared with the Python app or other browsers. The browser prototype uses a simple nearest-example comparison, so it can produce false positives and needs several varied examples per label. It is for trying the project, not reliable communication.
+Use a current browser and allow camera access. The demo downloads the MediaPipe runtime and hand-landmarker model from their public CDNs the first time it starts; the camera frames are processed locally and are not uploaded. Your recorded examples are stored in that browser's local storage on that device. They are not shared with the Python app or other browsers. An empty-camera recording is accepted for the special `idle` label; other labels require a detected hand, and live recognition is suppressed when no hand is currently detected. The browser prototype uses a simple nearest-example comparison, so it can produce false positives and needs several varied examples per label. It is for trying the project, not reliable communication.
 
 ## Install
 
