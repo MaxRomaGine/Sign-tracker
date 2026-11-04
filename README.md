@@ -8,7 +8,7 @@ The pinned MediaPipe 0.10.21 build has Python 3.10–3.12 wheels for Windows x64
 
 ## Try the browser demo
 
-The repository also includes a browser-based companion demo in [`web/`](web/). It uses MediaPipe hand landmarks in the browser and lets you record examples for your own labels, then compares live one-second hand movements against those examples. The browser demo is a separate lightweight prototype; it does not load the Python Random Forest model.
+The repository also includes a browser-based companion demo in [`web/`](web/). Type any label you want, record an example, and repeat with as many labels as your browser's local storage allows. It uses MediaPipe hand landmarks in the browser and compares live one-second hand movements against those examples. You can delete examples for one label or clear them all. The browser demo is a separate lightweight prototype; it does not load the Python Random Forest model.
 
 To publish it on GitHub Pages:
 

@@ -158,7 +158,7 @@ function stopCamera() {
 }
 
 async function recordExample() {
-  const label = $("labelInput").value.trim().toLowerCase();
+  const label = $("labelInput").value.trim().toLocaleLowerCase();
   if (!label || !stream || capturing) return;
   capturing = true; predictions = [];
   const start = performance.now(), frames = [];
@@ -178,8 +178,14 @@ async function recordExample() {
   if (!sampled.some((frame) => frame.some((value) => value !== 0))) {
     showMessage("No hand was detected. Keep your hand in view and try again.", true);
   } else {
-    examples.push({ label, frames: sampled }); saveExamples();
-    showMessage(`Saved example for “${label}”. Record a few more variations for better results.`);
+    examples.push({ label, frames: sampled });
+    try {
+      saveExamples();
+      showMessage(`Saved example for “${label}”. Record a few more variations for better results.`);
+    } catch {
+      examples.pop();
+      showMessage("The browser ran out of local storage. Clear some examples in this browser and try again.", true);
+    }
   }
   $("progress").style.width = "0%"; capturing = false; $("recordButton").disabled = false; $("recordButton").innerHTML = '<span class="record-dot"></span> Record 1 sec';
 }
@@ -191,13 +197,22 @@ function renderExamples() {
   const list = $("exampleList");
   if (!count) { list.innerHTML = '<div class="empty-state">Your recorded sign examples<br>will appear here.</div>'; return; }
   const counts = examples.reduce((acc, x) => (acc[x.label] = (acc[x.label] || 0) + 1, acc), {});
-  list.innerHTML = Object.entries(counts).map(([label, n]) => `<div class="example"><b>${escapeHTML(label)}</b><small>${n} EXAMPLE${n === 1 ? "" : "S"}</small></div>`).join("");
+  list.innerHTML = Object.entries(counts).map(([label, n]) => `<div class="example"><b>${escapeHTML(label)}</b><small>${n} EXAMPLE${n === 1 ? "" : "S"}</small><button class="remove-label" data-remove="${escapeHTML(label)}" aria-label="Delete all examples for ${escapeHTML(label)}" title="Delete this label and its examples">×</button></div>`).join("");
 }
 function escapeHTML(value) { return value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]); }
 
 $("cameraButton").addEventListener("click", () => stream ? stopCamera() : startCamera());
 $("recordButton").addEventListener("click", recordExample);
 $("clearButton").addEventListener("click", () => { examples = []; localStorage.removeItem(STORAGE_KEY); renderExamples(); showMessage("Examples cleared from this device."); });
+$("exampleList").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove]");
+  if (!button) return;
+  const label = button.dataset.remove;
+  examples = examples.filter((example) => example.label !== label);
+  saveExamples();
+  showMessage(`Deleted “${label}” and its recorded examples.`);
+});
 document.querySelectorAll("[data-label]").forEach((button) => button.addEventListener("click", () => $("labelInput").value = button.dataset.label));
+$("labelInput").addEventListener("keydown", (event) => { if (event.key === "Enter" && !$("recordButton").disabled) recordExample(); });
 window.addEventListener("beforeunload", () => stream?.getTracks().forEach((track) => track.stop()));
 renderExamples();
