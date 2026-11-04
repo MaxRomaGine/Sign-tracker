@@ -1,81 +1,113 @@
 # Sign Tracker
 
-A small, webcam based prototype for recognizing a personal vocabulary of hand signs. It uses MediaPipe landmarks and a Random Forest to classify short motion windows.
+Sign Tracker is a local webcam prototype for recognizing a small, user-recorded vocabulary of hand signs. It uses MediaPipe to find hands and a Random Forest to classify a one-second movement window. It is a learning project, not a general sign-language translator.
 
-This is an experiment, not a general sign language translator. It has no built-in vocabulary or model: you record examples for the signs you want to recognize. It has only been explored with a very small vocabulary (including “hola” and “gracias”), so results will depend heavily on the person, camera, lighting, and examples used for training.
+## Platform support
 
-## What it does
+The pinned MediaPipe 0.10.21 build has Python 3.10–3.12 wheels for Windows x64 and macOS Intel and Apple Silicon. The pinned OpenCV build needs macOS 13 or newer. Windows ARM is not covered by this pinned build. A built-in laptop webcam is easiest to start with; external cameras can be selected with `--camera 1`, `--camera 2`, and so on.
 
-- Extracts 3D hand landmarks with MediaPipe Tasks and keeps left and right hands in stable feature slots.
-- Summarizes a 30-frame window with two landmark displacements and peak frame-to-frame velocity.
-- Trains a Random Forest from locally recorded examples and shows a confidence-gated prediction in a live camera window.
+## Install
 
-## Setup
+Use Python 3.11 if possible. Create the environment in the project folder, install the pinned dependencies, and download the official MediaPipe hand model once.
 
-Python 3.10 or 3.11 is recommended. MediaPipe does not publish compatible packages for every Python version or platform, so use a supported Python version if installation fails.
+### macOS (Intel or Apple Silicon)
 
 ```bash
-git clone https://github.com/MaxRomaGine/Sign-tracker.git
-cd Sign-tracker
-python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+python3.11 -m venv .venv
+source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-mkdir -p models
-curl -L "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task" -o models/hand_landmarker.task
+python -m src.setup
 ```
 
-The first run may ask your operating system to grant camera access. Camera device `0` is used by default; pass `--camera 1` to choose another camera.
+On first use, allow camera access when macOS asks. If you denied it earlier, enable it under **System Settings → Privacy & Security → Camera**.
+
+### Windows (PowerShell, x64)
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m src.setup
+```
+
+The `.venv\Scripts\python.exe` commands work without changing PowerShell's script-execution policy. In Windows Settings, allow desktop apps to use the camera. Close video-call apps if they already have it open.
+
+## Check the camera
+
+Run this before recording. It opens the camera, captures one frame, and exits:
+
+```bash
+python -m src.debug --check
+```
+
+On Windows, replace `python` with `.\.venv\Scripts\python.exe`. On macOS, use the `python` command from the activated `.venv`. If camera 0 fails, try `--camera 1`. To see the camera and live landmark activity, run `python -m src.debug` and press `q` to close it.
 
 ## Record examples
 
-Record each label in multiple short sessions. Vary your position and speed a little, keep the sign in view, and make examples for every sign you want the model to distinguish. Each sample is one second long; press Space to capture it. Press `q` to stop.
+Each Space press records a one-second window. For a still sign, hold the hand shape steady in view. For a moving sign, perform the whole movement during the one-second capture. Vary your distance, position, and speed across recordings.
+
+Record each label in several separate runs. Each run is saved as a separate session, which lets training hold out whole sessions for a more honest score. Record each class at least three times, closing and rerunning the command between sessions.
 
 ```bash
-python -m src.collect --label hola --samples 30
-python -m src.collect --label gracias --samples 30
+python -m src.collect --label hola --samples 20
+python -m src.collect --label gracias --samples 20
+python -m src.collect --label idle --samples 20
 ```
 
-Collection appends examples to `data/signs.npz`. This file contains webcam-derived landmarks and stays local by default. Do not commit it unless you intend to share those recordings/features. The landmark format changed in this update, so back up any earlier dataset and record fresh samples rather than mixing formats.
+Repeat each command in new runs to create separate sessions. For `idle`, record a mix of hands out of view and ordinary non-sign hand movement; the prompt reminds you what to capture. Idle examples help the model learn when not to show a sign. Record idle data in multiple sessions too. A useful starting dataset is 3–5 sessions per sign, with 20–30 examples per session.
 
-## Train and run
+The dataset is stored in `data/signs.npz`; the trained model is `models/sign_classifier.pkl`. Both stay on your computer and are ignored by Git. Webcam-derived landmarks can still be personal data, so share them only intentionally.
+
+## Train and recognize
 
 ```bash
 python -m src.train
 python -m src.infer
 ```
 
-Training prints class counts and, when the dataset is large enough, a small stratified holdout report. A random holdout from the same recording sessions is only a rough debugging signal; it does not measure performance on new people or conditions. The saved model goes to `models/sign_classifier.pkl` and is also local by default.
+The recognizer runs MediaPipe on CPU for predictable cross-platform behavior. It combines motion with a wrist-centered, scale-normalized hand-shape description. It samples camera frames onto a fixed one-second timeline, so slower and faster camera frame rates use the same feature window. It requires several consistent predictions before showing a sign and holds the result briefly. The `idle` class can suppress false activations when its examples cover ordinary movement well.
+
+Training reports a session holdout score when every label has samples from at least two separate collection sessions. It holds out one complete session per label, then trains the final model on all examples. The score is useful for spotting obvious problems, but it still reflects one signer, camera, and environment. Test with new sessions and ordinary movements before trusting it.
 
 Useful options:
 
 ```bash
-python -m src.collect --label hola --samples 40 --camera 1
+python -m src.collect --label hola --samples 25 --camera 1
 python -m src.train --data data/signs.npz --output models/my_model.pkl --trees 300
 python -m src.infer --model models/my_model.pkl --camera 1 --threshold 0.65
 ```
 
-## Controls and limitations
+On Windows, use `.\.venv\Scripts\python.exe -m ...` in place of `python -m ...` if you did not activate the environment.
 
-- Press `q` to exit collection or live inference; press Space to record one sample.
-- A missing hand is encoded as zero landmarks. There is no separate “idle” training class; low motion and low confidence are suppressed instead.
-- The MediaPipe `hand_landmarker.task` asset must be downloaded once into `models/` before collection, debugging, or inference.
-- The classifier uses a fixed 30-frame window, so performance assumes a reasonably steady camera frame rate.
-- Dynamic signs that look similar in a short window, two-handed signs, occlusion, and large differences in signing style may be misclassified.
-- This project does not translate continuous signing, recognize facial or grammatical markers, or replace instruction from Deaf signers and language experts.
+## Troubleshooting
+
+- **MediaPipe model missing:** run `python -m src.setup` from the project folder.
+- **Camera will not open:** run `python -m src.debug --check`, allow camera access, close other camera apps, and try `--camera 1`.
+- **No signs appear:** retrain after collecting multiple sessions per class; ensure hands are well lit and visible; lower `--threshold` slightly only if false activations remain low.
+- **Old dataset or model rejected:** the feature format changed. Move old files aside and record fresh examples with this version.
+- **Install fails:** use 64-bit Python 3.11 and recreate the virtual environment. MediaPipe does not provide a wheel for every Python version or computer architecture.
+
+## What it can and cannot recognize
+
+- It can learn a small personal set of static hand shapes and short movements from recorded examples.
+- Hand landmarks alone do not capture facial expression, body grammar, or continuous signing.
+- Similar signs, occlusion, changes in signer or lighting, and spontaneous movement can cause errors.
+- Results are not validated for communication, accessibility, or use in safety-critical situations.
 
 ## Project layout
 
 ```text
 src/
-  collect.py    Record labeled webcam windows
-  extractor.py  Extract normalized MediaPipe landmarks
-  utils.py      Convert landmark windows to motion features
-  train.py      Validate data, train and save a classifier
-  infer.py      Run confidence-gated live prediction
-  debug.py      Inspect the camera feature pipeline
+  collect.py    Record labeled one-second camera windows and session IDs
+  extractor.py  Detect hands and keep left/right landmark slots stable
+  utils.py      Resample time windows and build motion plus hand-shape features
+  train.py      Validate data, evaluate by session, and train a classifier
+  infer.py      Run confidence-gated live recognition
+  debug.py      Check camera access or preview landmark activity
+  setup.py      Download the required MediaPipe task model
 ```
 
-## Next steps
+## Next improvements
 
-To evaluate this beyond a personal prototype, collect more balanced sessions, separate train and test data by recording session (and signer), compare against a temporal model, and measure false activations during ordinary movement. A useful portfolio demo should show both successful predictions and the current failure cases.
+The next useful step is a small evaluation set recorded on different days and, with consent, by another signer. Track both missed signs and false activations. If the project grows beyond a personal vocabulary, explore a temporal model and a sign-language dataset developed with Deaf language experts.

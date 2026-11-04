@@ -11,7 +11,7 @@ import numpy as np
 
 from src.collect import open_camera
 from src.extractor import HandExtractor
-from src.utils import FEATURE_SCHEMA_VERSION, FRAME_FEATURES, WINDOW_SIZE, extract_kinematic_features
+from src.utils import FEATURE_COUNT, FEATURE_SCHEMA_VERSION, WINDOW_SECONDS, extract_kinematic_features, resample_window
 
 
 def main():
@@ -31,18 +31,23 @@ def main():
     model = joblib.load(args.model)
     if getattr(model, "_sign_tracker_feature_version", None) != FEATURE_SCHEMA_VERSION:
         parser.error("Model uses an older feature format. Record fresh data and run python -m src.train.")
-    if getattr(model, "n_features_in_", None) != FRAME_FEATURES * 3:
+    if getattr(model, "n_features_in_", None) != FEATURE_COUNT:
         parser.error("Model feature count is incompatible; retrain it with the current project version.")
+    landmarker_path = Path("models/hand_landmarker.task")
+    if not landmarker_path.exists():
+        parser.error(f"MediaPipe model not found: {landmarker_path}. Follow the setup instructions in README.md.")
+    extractor = HandExtractor()
     try:
         cap = open_camera(args.camera)
     except RuntimeError as exc:
+        extractor.close()
         parser.error(str(exc))
-    extractor = HandExtractor()
-    window = deque(maxlen=WINDOW_SIZE)
+    frame_history = deque()
     recent_predictions = deque(maxlen=5)
     last_label = ""
     display_until = 0.0
-    print("Live recognition started. Press q to quit. Keep each sign moving naturally through the camera view.")
+    print(f"Camera: {cap.getBackendName()} | resolution: {int(cap.get(3))}x{int(cap.get(4))}")
+    print("Live recognition started. Press q to quit. Hold static signs clearly or perform dynamic signs naturally.")
 
     try:
         while True:
@@ -51,15 +56,22 @@ def main():
                 print("Camera stopped returning frames.")
                 break
             frame = cv2.flip(frame, 1)
-            vector = extractor.extract(frame)
-            window.append(vector)
             now = time.monotonic()
+            vector = extractor.extract(frame)
+            frame_history.append((now, vector))
+            cutoff = now - WINDOW_SECONDS
+            while len(frame_history) > 2 and frame_history[1][0] <= cutoff:
+                frame_history.popleft()
             confidence = 0.0
             predicted = ""
 
-            if len(window) == WINDOW_SIZE and np.max(np.abs(vector)) > 1e-4:
-                features = extract_kinematic_features(np.asarray(window)).reshape(1, -1)
-                if np.max(np.abs(features)) > 0.002:
+            if len(frame_history) >= 2 and frame_history[0][0] <= cutoff:
+                timestamps, vectors = zip(*frame_history)
+                sampled = resample_window(vectors, timestamps)
+                hands_present = np.max(np.abs(sampled)) > 1e-4
+                has_idle_class = "idle" in getattr(model, "classes_", [])
+                if hands_present or has_idle_class:
+                    features = extract_kinematic_features(sampled).reshape(1, -1)
                     if hasattr(model, "predict_proba"):
                         probabilities = model.predict_proba(features)[0]
                         index = int(np.argmax(probabilities))
@@ -68,7 +80,7 @@ def main():
                     else:
                         predicted = str(model.predict(features)[0])
                         confidence = 1.0
-                    if confidence >= args.threshold:
+                    if confidence >= args.threshold and predicted != "idle":
                         recent_predictions.append(predicted)
                         if len(recent_predictions) >= 3 and max(set(recent_predictions), key=recent_predictions.count) == predicted:
                             last_label = predicted

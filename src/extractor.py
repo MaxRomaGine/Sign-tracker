@@ -18,7 +18,10 @@ class HandExtractor:
 
     def __init__(self, model_path: str = "models/hand_landmarker.task", max_num_hands: int = 2):
         self.max_num_hands = max_num_hands
-        base_options = python.BaseOptions(model_asset_path=model_path)
+        base_options = python.BaseOptions(
+            model_asset_path=model_path,
+            delegate=python.BaseOptions.Delegate.CPU,
+        )
         options = vision.HandLandmarkerOptions(
             base_options=base_options,
             num_hands=max_num_hands,
