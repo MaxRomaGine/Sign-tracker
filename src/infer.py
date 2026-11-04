@@ -58,6 +58,7 @@ def main():
             frame = cv2.flip(frame, 1)
             now = time.monotonic()
             vector = extractor.extract(frame)
+            current_hands_present = np.max(np.abs(vector)) > 1e-4
             frame_history.append((now, vector))
             cutoff = now - WINDOW_SECONDS
             while len(frame_history) > 2 and frame_history[1][0] <= cutoff:
@@ -65,7 +66,7 @@ def main():
             confidence = 0.0
             predicted = ""
 
-            if len(frame_history) >= 2 and frame_history[0][0] <= cutoff:
+            if current_hands_present and len(frame_history) >= 2 and frame_history[0][0] <= cutoff:
                 timestamps, vectors = zip(*frame_history)
                 sampled = resample_window(vectors, timestamps)
                 hands_present = np.max(np.abs(sampled)) > 1e-4
@@ -90,6 +91,11 @@ def main():
                 else:
                     recent_predictions.clear()
             else:
+                recent_predictions.clear()
+
+            if not current_hands_present:
+                last_label = ""
+                display_until = 0.0
                 recent_predictions.clear()
 
             label = last_label if now <= display_until else ""

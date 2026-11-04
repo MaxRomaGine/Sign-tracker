@@ -93,6 +93,11 @@ function classify(frames) {
 }
 
 function recognize(now) {
+  if (!latestFrame.some((value) => Math.abs(value) > 1e-5)) {
+    predictions = []; stableLabel = ""; stableUntil = 0;
+    $("recognized").classList.remove("show");
+    return;
+  }
   const frames = resampledWindow(now);
   if (!frames) return;
   const result = classify(frames);
@@ -116,6 +121,10 @@ async function frameLoop() {
         latestFrame = normalizedHands(result); drawLandmarks(result);
         history.push({ t: now, v: latestFrame });
         while (history.length && history[0].t < now - 2500) history.shift();
+        if (!latestFrame.some((value) => Math.abs(value) > 1e-5)) {
+          predictions = []; stableLabel = ""; stableUntil = 0;
+          $("recognized").classList.remove("show");
+        }
         if (!capturing) recognize(now);
       } catch (error) { showMessage(`Hand tracking stopped: ${error.message}`, true); }
     }
